@@ -12,12 +12,14 @@ class KhaataProvider extends ChangeNotifier {
 
   static const String _prefIsLoggedInKey = 'is_logged_in';
   static const String _prefUserNameKey = 'user_name';
+  static const String _prefUserEmailKey = 'user_email';
   static const String _prefUserPinKey = 'user_pin';
   static const String _prefBusinessNameKey = 'business_name';
   static const String _prefLocaleKey = 'app_locale';
 
   bool _isLoggedIn = false;
   String _userName = '';
+  String _userEmail = '';
   String _userPin = '';
   String _businessName = 'My Business Khata';
   String _locale = 'en'; // 'en', 'ur', 'ps', 'ar'
@@ -34,6 +36,7 @@ class KhaataProvider extends ChangeNotifier {
   // Getters
   bool get isLoggedIn => _isLoggedIn;
   String get userName => _userName;
+  String get userEmail => _userEmail;
   String get userPin => _userPin;
   bool get hasAccount => _userName.isNotEmpty;
   String get locale => _locale;
@@ -79,6 +82,7 @@ class KhaataProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _isLoggedIn = prefs.getBool(_prefIsLoggedInKey) ?? false;
       _userName = prefs.getString(_prefUserNameKey) ?? '';
+      _userEmail = prefs.getString(_prefUserEmailKey) ?? '';
       _userPin = prefs.getString(_prefUserPinKey) ?? '';
       _businessName = prefs.getString(_prefBusinessNameKey) ??
           (_userName.isNotEmpty ? '$_userName Khaata' : 'My Business Khata');
@@ -130,8 +134,8 @@ class KhaataProvider extends ChangeNotifier {
     return false;
   }
 
-  /// Sign Up a new user and automatically set Business Title as "[Name] Khaata"
-  Future<bool> signUp({required String name, required String pin}) async {
+  /// Sign Up a new user with name, email, pin and automatically set Business Title as "[Name] Khaata"
+  Future<bool> signUp({required String name, required String email, required String pin}) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return false;
 
@@ -140,6 +144,7 @@ class KhaataProvider extends ChangeNotifier {
         : '$trimmedName Khaata';
 
     _userName = trimmedName;
+    _userEmail = email.trim();
     _userPin = pin.trim();
     _businessName = formattedBusinessName;
     _isLoggedIn = true;
@@ -149,6 +154,7 @@ class KhaataProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefUserNameKey, _userName);
+      await prefs.setString(_prefUserEmailKey, _userEmail);
       await prefs.setString(_prefUserPinKey, _userPin);
       await prefs.setString(_prefBusinessNameKey, _businessName);
       await prefs.setBool(_prefIsLoggedInKey, true);

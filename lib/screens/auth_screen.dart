@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/khaata_provider.dart';
 
-/// Screen for User Onboarding, Sign Up, Login, Biometric Unlock, and Multi-Language support.
+/// Screen for User Onboarding, Sign Up (Name, Email, PIN), Login, Biometric Unlock, and Multi-Language support.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -14,6 +14,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _pinController = TextEditingController();
 
   bool _isSignUpMode = true;
@@ -26,12 +27,14 @@ class _AuthScreenState extends State<AuthScreen> {
     if (provider.hasAccount) {
       _isSignUpMode = false;
       _nameController.text = provider.userName;
+      _emailController.text = provider.userEmail;
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _pinController.dispose();
     super.dispose();
   }
@@ -44,6 +47,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isSignUpMode) {
       final success = await provider.signUp(
         name: _nameController.text,
+        email: _emailController.text,
         pin: _pinController.text,
       );
       if (success && mounted) {
@@ -77,7 +81,6 @@ class _AuthScreenState extends State<AuthScreen> {
   void _tryBiometric() async {
     final provider = context.read<KhaataProvider>();
     
-    // If in signup mode, ensure name is entered first
     if (_isSignUpMode && _nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -94,6 +97,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (_isSignUpMode) {
         await provider.signUp(
           name: _nameController.text,
+          email: _emailController.text,
           pin: _pinController.text,
         );
         if (!mounted) return;
@@ -247,13 +251,13 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                                 const Divider(height: 24),
 
-                                // Sign Up Name Field
+                                // Sign Up Fields (Name, Email, PIN)
                                 if (_isSignUpMode) ...[
                                   TextFormField(
                                     controller: _nameController,
                                     textCapitalization: TextCapitalization.words,
                                     decoration: InputDecoration(
-                                      labelText: 'Your Name / Business Owner *',
+                                      labelText: 'Your Name *',
                                       hintText: 'e.g. Talibjan',
                                       prefixIcon: const Icon(Icons.person_rounded),
                                       border: OutlineInputBorder(
@@ -268,6 +272,30 @@ class _AuthScreenState extends State<AuthScreen> {
                                     validator: (v) {
                                       if (v == null || v.trim().isEmpty) {
                                         return 'Please enter your name';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Email Field
+                                  TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: InputDecoration(
+                                      labelText: 'Email Address *',
+                                      hintText: 'e.g. talibjan@gmail.com',
+                                      prefixIcon: const Icon(Icons.email_outlined),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Please enter email address';
+                                      }
+                                      if (!v.contains('@') || !v.contains('.')) {
+                                        return 'Please enter a valid email address';
                                       }
                                       return null;
                                     },
@@ -357,6 +385,12 @@ class _AuthScreenState extends State<AuthScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
+                                  validator: (v) {
+                                    if (_isSignUpMode && (v == null || v.trim().isEmpty)) {
+                                      return 'Please enter a security PIN';
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 const SizedBox(height: 24),
 
@@ -386,7 +420,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
 
-                                // Biometric Fingerprint Button (Available on both Login & Signup)
+                                // Biometric Fingerprint Button
                                 const SizedBox(height: 16),
                                 Center(
                                   child: TextButton.icon(
