@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/khaata_provider.dart';
 import '../widgets/add_debtor_sheet.dart';
 import '../widgets/business_header.dart';
@@ -24,6 +25,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<KhaataProvider>();
+    final l10n = AppLocalizations(provider.locale);
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: SafeArea(
@@ -53,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     context.read<KhaataProvider>().setSearchQuery(val);
                   },
                   decoration: InputDecoration(
-                    hintText: 'Search by name or phone number...',
+                    hintText: l10n.translate('search_hint'),
                     hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
                     prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF1E3C72)),
                     suffixIcon: _searchController.text.isNotEmpty
@@ -107,7 +111,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  isSearching ? 'No matching debtor found' : 'No debtors added yet',
+                                  isSearching ? 'No matching debtor found' : l10n.translate('no_debtors'),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -120,7 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   child: Text(
                                     isSearching
                                         ? 'Try searching with a different name or phone number.'
-                                        : 'Tap the button below to add your first Kharzdaar / Debtor.',
+                                        : l10n.translate('no_debtors_sub'),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                                   ),
@@ -135,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                     icon: const Icon(Icons.person_add_alt_1_rounded),
-                                    label: const Text('Add Kharzdaar Now'),
+                                    label: Text(l10n.translate('add_kharzdaar_now')),
                                     onPressed: () => AddDebtorSheet.show(context),
                                   ),
                               ],
@@ -171,9 +175,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 4,
         onPressed: () => AddDebtorSheet.show(context),
         icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text(
-          'Add Kharzdaar',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        label: Text(
+          l10n.translate('add_kharzdaar'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
     );

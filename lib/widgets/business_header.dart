@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
 import '../providers/khaata_provider.dart';
 
 /// Top header widget displaying business/profile name, language selector, and running totals summary.
@@ -104,6 +105,7 @@ class BusinessHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<KhaataProvider>();
+    final l10n = AppLocalizations(provider.locale);
     final businessName = provider.businessName;
     final totalReceivable = provider.totalReceivable;
     final totalDebtorsCount = provider.debtors.length;
@@ -240,13 +242,13 @@ class BusinessHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.arrow_downward_rounded, color: Color(0xFFFF8A80), size: 16),
-                          SizedBox(width: 4),
+                          const Icon(Icons.arrow_downward_rounded, color: Color(0xFFFF8A80), size: 16),
+                          const SizedBox(width: 4),
                           Text(
-                            "You'll Get",
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            l10n.translate('you_ll_get'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
@@ -270,19 +272,19 @@ class BusinessHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.people_alt_rounded, color: Colors.white70, size: 16),
-                          SizedBox(width: 4),
+                          const Icon(Icons.people_alt_rounded, color: Colors.white70, size: 16),
+                          const SizedBox(width: 4),
                           Text(
-                            'Kharzdaar',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            l10n.translate('total'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$totalDebtorsCount Total',
+                        '$totalDebtorsCount',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
