@@ -1,14 +1,15 @@
 import 'package:flutter/foundation.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/debtor_model.dart';
 import '../models/transaction_model.dart';
+import '../models/user_model.dart';
+import '../services/biometric_service.dart';
+import '../services/secure_storage_service.dart';
 
 /// Provider class handling state management for auth, localization, biometrics, and ledger.
 class KhaataProvider extends ChangeNotifier {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
-  final LocalAuthentication _localAuth = LocalAuthentication();
 
   static const String _prefIsLoggedInKey = 'is_logged_in';
   static const String _prefUserNameKey = 'user_name';
@@ -23,6 +24,9 @@ class KhaataProvider extends ChangeNotifier {
   String _userPin = '';
   String _businessName = 'My Business Khata';
   String _locale = 'en'; // 'en', 'ur', 'ps', 'ar'
+  bool _isBiometricEnabled = false;
+  bool _hasLocalUser = false;
+  UserModel? _currentUser;
 
   String _searchQuery = '';
   bool _isLoading = false;
@@ -38,7 +42,11 @@ class KhaataProvider extends ChangeNotifier {
   String get userName => _userName;
   String get userEmail => _userEmail;
   String get userPin => _userPin;
-  bool get hasAccount => _userName.isNotEmpty;
+  bool get hasAccount => _hasLocalUser || _userName.isNotEmpty;
+  bool get hasLocalUser => _hasLocalUser;
+  bool get isBiometricEnabled => _isBiometricEnabled;
+  UserModel? get currentUser => _currentUser;
+  String? get userImagePath => _currentUser?.imagePath;
   String get locale => _locale;
 
   String get businessName => _businessName;
@@ -76,13 +84,28 @@ class KhaataProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load Auth, Locale & Profile settings from SharedPreferences
+  /// Load Auth, Locale & Profile settings from SQLite, SecureStorage, and SharedPreferences
   Future<void> _loadAuthAndProfile() async {
     try {
+      // 1. Fetch user from SQLite database
+      _currentUser = await _dbHelper.getUser();
+      if (_currentUser != null) {
+        _hasLocalUser = true;
+        _userName = _currentUser!.name;
+        _userEmail = _currentUser!.email;
+        _businessName = '${_currentUser!.name} Khaata';
+      }
+
+      // 2. Fetch biometric flag from SecureStorage
+      _isBiometricEnabled = await SecureStorageService.instance.isBiometricEnabled();
+
+      // 3. SharedPreferences settings
       final prefs = await SharedPreferences.getInstance();
       _isLoggedIn = prefs.getBool(_prefIsLoggedInKey) ?? false;
-      _userName = prefs.getString(_prefUserNameKey) ?? '';
-      _userEmail = prefs.getString(_prefUserEmailKey) ?? '';
+      if (_userName.isEmpty) {
+        _userName = prefs.getString(_prefUserNameKey) ?? '';
+        _userEmail = prefs.getString(_prefUserEmailKey) ?? '';
+      }
       _userPin = prefs.getString(_prefUserPinKey) ?? '';
       _businessName = prefs.getString(_prefBusinessNameKey) ??
           (_userName.isNotEmpty ? '$_userName Khaata' : 'My Business Khata');
@@ -105,87 +128,214 @@ class KhaataProvider extends ChangeNotifier {
     }
   }
 
-  /// Authenticate using Biometrics (Fingerprint / Face ID) with robust fallback
-  Future<bool> authenticateWithBiometrics() async {
-    try {
-      final bool canCheck = await _localAuth.canCheckBiometrics;
-      final bool isSupported = await _localAuth.isDeviceSupported();
+  /// Sign Up with Fingerprint / Biometric
+  Future<BiometricResult> signUpWithBiometrics({
+    required String name,
+    required String email,
+    String? imagePath,
+  }) async {
+    final trimmedName = name.trim();
+    final trimmedEmail = email.trim();
 
-      if (canCheck || isSupported) {
-        final bool didAuthenticate = await _localAuth.authenticate(
-          localizedReason: 'Scan your fingerprint to verify Qarz Khaata account',
-          options: const AuthenticationOptions(
-            biometricOnly: false,
-            stickyAuth: true,
-          ),
-        );
-        if (didAuthenticate) {
-          _isLoggedIn = true;
-          notifyListeners();
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool(_prefIsLoggedInKey, true);
-          return true;
-        }
-      }
-    } catch (e) {
-      debugPrint('Biometric authentication error: $e');
+    if (trimmedName.isEmpty || trimmedEmail.isEmpty) {
+      return BiometricResult.failure('Name and Email are required.');
     }
 
-    // Always fallback successfully so users are never blocked on emulators or test devices
-    _isLoggedIn = true;
-    notifyListeners();
+    // 1. Trigger biometric prompt
+    final bioResult = await BiometricService.instance.authenticate(
+      localizedReason: 'Scan your fingerprint to register and secure your account',
+    );
+
+    if (!bioResult.success) {
+      return bioResult;
+    }
+
     try {
+      // 2. Save user to SQLite
+      final user = UserModel(
+        name: trimmedName,
+        email: trimmedEmail,
+        imagePath: imagePath,
+        createdAt: DateTime.now(),
+      );
+      await _dbHelper.insertUser(user);
+      _currentUser = await _dbHelper.getUser() ?? user;
+
+      // 3. Save flag in flutter_secure_storage
+      await SecureStorageService.instance.setBiometricEnabled(true);
+      await SecureStorageService.instance.saveUserEmail(trimmedEmail);
+
+      // 4. Update in-memory state & SharedPreferences
+      _userName = trimmedName;
+      _userEmail = trimmedEmail;
+      _businessName = '$trimmedName Khaata';
+      _isBiometricEnabled = true;
+      _hasLocalUser = true;
+      _isLoggedIn = true;
+
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefUserNameKey, _userName);
+      await prefs.setString(_prefUserEmailKey, _userEmail);
+      await prefs.setString(_prefBusinessNameKey, _businessName);
       await prefs.setBool(_prefIsLoggedInKey, true);
-    } catch (_) {}
-    return true;
+
+      notifyListeners();
+      return BiometricResult.success();
+    } catch (e) {
+      debugPrint('Error during biometric signup: $e');
+      return BiometricResult.failure('Failed to save account details: $e');
+    }
   }
 
-  /// Sign Up a new user with name, email, pin and automatically set Business Title as "[Name] Khaata"
-  Future<bool> signUp({required String name, required String email, required String pin}) async {
+  /// Login with Fingerprint / Biometric
+  Future<BiometricResult> loginWithBiometrics() async {
+    try {
+      final user = await _dbHelper.getUser();
+      if (user == null) {
+        return BiometricResult.failure('No registered account found. Please sign up first.');
+      }
+
+      final isBioEnabled = await SecureStorageService.instance.isBiometricEnabled();
+      if (!isBioEnabled) {
+        return BiometricResult.failure('Biometric login is not enabled for this device.');
+      }
+
+      final bioResult = await BiometricService.instance.authenticate(
+        localizedReason: 'Scan your fingerprint to log into ${user.name}\'s Khaata',
+      );
+
+      if (!bioResult.success) {
+        return bioResult;
+      }
+
+      _currentUser = user;
+      _userName = user.name;
+      _userEmail = user.email;
+      _businessName = '${user.name} Khaata';
+      _isBiometricEnabled = true;
+      _hasLocalUser = true;
+      _isLoggedIn = true;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefIsLoggedInKey, true);
+
+      notifyListeners();
+      return BiometricResult.success();
+    } catch (e) {
+      debugPrint('Error during biometric login: $e');
+      return BiometricResult.failure('Login failed: $e');
+    }
+  }
+
+  /// Sign Up with PIN
+  Future<bool> signUpWithPin({
+    required String name,
+    required String email,
+    required String pin,
+    String? profilePicPath,
+  }) async {
     final trimmedName = name.trim();
-    if (trimmedName.isEmpty) return false;
+    final trimmedEmail = email.trim();
+    final trimmedPin = pin.trim();
 
-    final formattedBusinessName = trimmedName.toLowerCase().endsWith('khaata')
-        ? trimmedName
-        : '$trimmedName Khaata';
-
-    _userName = trimmedName;
-    _userEmail = email.trim();
-    _userPin = pin.trim();
-    _businessName = formattedBusinessName;
-    _isLoggedIn = true;
-
-    notifyListeners();
+    if (trimmedName.isEmpty || trimmedEmail.isEmpty || trimmedPin.isEmpty) {
+      return false;
+    }
 
     try {
+      final user = UserModel(
+        name: trimmedName,
+        email: trimmedEmail,
+        imagePath: profilePicPath,
+        createdAt: DateTime.now(),
+      );
+      await _dbHelper.insertUser(user);
+      _currentUser = user;
+      _userName = trimmedName;
+      _userEmail = trimmedEmail;
+      _userPin = trimmedPin;
+      _businessName = '$trimmedName Khaata';
+      _hasLocalUser = true;
+      _isLoggedIn = true;
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefUserNameKey, _userName);
       await prefs.setString(_prefUserEmailKey, _userEmail);
       await prefs.setString(_prefUserPinKey, _userPin);
       await prefs.setString(_prefBusinessNameKey, _businessName);
       await prefs.setBool(_prefIsLoggedInKey, true);
+
+      notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Error during signup: $e');
+      debugPrint('Error signing up with PIN: $e');
+      return false;
+    }
+  }
+
+  /// Sign Up with Fingerprint
+  Future<bool> signUpWithFingerprint({
+    required String name,
+    required String email,
+    required String pin,
+    String? profilePicPath,
+  }) async {
+    final result = await signUpWithBiometrics(
+      name: name,
+      email: email,
+      imagePath: profilePicPath,
+    );
+    if (result.success) {
+      _userPin = pin.trim();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefUserPinKey, _userPin);
+      notifyListeners();
+      return true;
     }
     return false;
   }
 
-  /// Login existing user
-  Future<bool> login(String pin) async {
-    if (_userPin.isEmpty || pin.trim() == _userPin) {
-      _isLoggedIn = true;
-      notifyListeners();
-      try {
+  /// Login with PIN
+  Future<bool> loginWithPin(String pin) async {
+    try {
+      final user = await _dbHelper.getUser();
+      if (user != null && (_userPin.isEmpty || pin.trim() == _userPin)) {
+        _currentUser = user;
+        _userName = user.name;
+        _userEmail = user.email;
+        _businessName = '${user.name} Khaata';
+        _hasLocalUser = true;
+        _isLoggedIn = true;
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_prefIsLoggedInKey, true);
-      } catch (e) {
-        debugPrint('Error saving login state: $e');
+
+        notifyListeners();
+        return true;
       }
-      return true;
+    } catch (e) {
+      debugPrint('Error logging in with PIN: $e');
     }
     return false;
+  }
+
+  /// Login with Fingerprint
+  Future<UserModel?> loginWithFingerprint() async {
+    final result = await loginWithBiometrics();
+    if (result.success) {
+      return _currentUser;
+    }
+    return null;
+  }
+
+  /// Sign Up a new user with name, email, pin and automatically set Business Title as "[Name] Khaata"
+  Future<bool> signUp({required String name, required String email, required String pin}) async {
+    return await signUpWithPin(name: name, email: email, pin: pin);
+  }
+
+  /// Login existing user
+  Future<bool> login(String pin) async {
+    return await loginWithPin(pin);
   }
 
   /// Log out current user

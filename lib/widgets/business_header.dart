@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -137,17 +139,25 @@ class BusinessHeader extends StatelessWidget {
           // Business Profile Header Bar
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(35),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.store_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.white.withAlpha(40),
+                backgroundImage: provider.userImagePath != null &&
+                        provider.userImagePath!.isNotEmpty &&
+                        !kIsWeb &&
+                        File(provider.userImagePath!).existsSync()
+                    ? FileImage(File(provider.userImagePath!))
+                    : null,
+                child: (provider.userImagePath == null ||
+                        provider.userImagePath!.isEmpty ||
+                        kIsWeb ||
+                        !File(provider.userImagePath!).existsSync())
+                    ? const Icon(
+                        Icons.store_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
