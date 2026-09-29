@@ -18,7 +18,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _pinController = TextEditingController();
 
   bool _isSignUpMode = true;
-  String _livePreviewName = '';
 
   @override
   void initState() {
@@ -264,11 +263,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _livePreviewName = val.trim();
-                                      });
-                                    },
                                     validator: (v) {
                                       if (v == null || v.trim().isEmpty) {
                                         return 'Please enter your name';
@@ -299,58 +293,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                       }
                                       return null;
                                     },
-                                  ),
-                                  const SizedBox(height: 16),
-
-                                  // Live Preview Box
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.indigo.withAlpha(15),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.indigo.withAlpha(40),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.storefront_rounded,
-                                          color: Colors.indigo,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Header Title Preview:',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                              Text(
-                                                _livePreviewName.isEmpty
-                                                    ? 'Talibjan Khaata'
-                                                    : (_livePreviewName
-                                                            .toLowerCase()
-                                                            .endsWith('khaata')
-                                                        ? _livePreviewName
-                                                        : '$_livePreviewName Khaata'),
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.indigo,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                 ] else ...[
