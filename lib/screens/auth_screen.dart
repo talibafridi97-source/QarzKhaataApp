@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/khaata_provider.dart';
+import '../widgets/biometric_dialog.dart';
 
 /// Screen for User Onboarding, Sign Up (Name, Email, PIN), Login, Biometric Unlock, and Multi-Language support.
 class AuthScreen extends StatefulWidget {
@@ -78,7 +79,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  /// Biometric Fingerprint Auth (for Sign Up or Login backup if PIN is forgotten)
+  /// Biometric Fingerprint Auth (for Sign Up or Login verification)
   void _tryBiometric() async {
     final provider = context.read<KhaataProvider>();
     
@@ -92,11 +93,11 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    // Explicitly prompt biometric scan
-    final success = await provider.authenticateWithBiometrics();
+    // Explicitly show Biometric Fingerprint verification dialog
+    final bool scanned = await BiometricDialog.show(context);
     if (!mounted) return;
 
-    if (success) {
+    if (scanned) {
       if (_isSignUpMode) {
         await provider.signUp(
           name: _nameController.text,
@@ -104,7 +105,6 @@ class _AuthScreenState extends State<AuthScreen> {
           pin: _pinController.text.trim().isEmpty ? '1234' : _pinController.text,
         );
       } else {
-        // If logging in via fingerprint, bypass PIN requirement
         await provider.login(provider.userPin);
       }
 
@@ -119,7 +119,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Fingerprint verification failed or canceled.'),
+          content: Text('Fingerprint verification canceled.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -367,7 +367,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
 
-                                // Biometric Fingerprint Button (Separate from standard button)
+                                // Biometric Fingerprint Button
                                 const SizedBox(height: 16),
                                 Center(
                                   child: TextButton.icon(
