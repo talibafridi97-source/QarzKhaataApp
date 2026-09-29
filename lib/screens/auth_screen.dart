@@ -76,12 +76,40 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _tryBiometric() async {
     final provider = context.read<KhaataProvider>();
+    
+    // If in signup mode, ensure name is entered first
+    if (_isSignUpMode && _nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your name before using fingerprint signup.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final success = await provider.authenticateWithBiometrics();
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
+      if (_isSignUpMode) {
+        await provider.signUp(
+          name: _nameController.text,
+          pin: _pinController.text,
+        );
+        if (!mounted) return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Biometric authentication successful!'),
           backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Biometric verification failed or not set up on device.'),
+          backgroundColor: Colors.redAccent,
         ),
       );
     }
@@ -358,23 +386,21 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
 
-                                // Biometric Fingerprint Button (if account exists and in login mode)
-                                if (hasAccount && !_isSignUpMode) ...[
-                                  const SizedBox(height: 16),
-                                  Center(
-                                    child: TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: Colors.indigo,
-                                      ),
-                                      onPressed: _tryBiometric,
-                                      icon: const Icon(Icons.fingerprint_rounded, size: 28),
-                                      label: const Text(
-                                        'Unlock with Fingerprint / Biometrics',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
+                                // Biometric Fingerprint Button (Available on both Login & Signup)
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.indigo,
+                                    ),
+                                    onPressed: _tryBiometric,
+                                    icon: const Icon(Icons.fingerprint_rounded, size: 28),
+                                    label: Text(
+                                      _isSignUpMode ? 'Sign Up with Fingerprint' : 'Unlock with Fingerprint / Biometrics',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                ],
+                                ),
                               ],
                             ),
                           ),
