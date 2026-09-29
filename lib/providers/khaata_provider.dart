@@ -105,7 +105,7 @@ class KhaataProvider extends ChangeNotifier {
     }
   }
 
-  /// Authenticate using Biometrics (Fingerprint / Face ID) with PC/Emulator fallback
+  /// Authenticate using Biometrics (Fingerprint / Face ID) with prompt & PC/Emulator fallback
   Future<bool> authenticateWithBiometrics() async {
     try {
       final bool canCheck = await _localAuth.canCheckBiometrics;
@@ -113,7 +113,7 @@ class KhaataProvider extends ChangeNotifier {
 
       if (canCheck || isSupported) {
         final bool didAuthenticate = await _localAuth.authenticate(
-          localizedReason: 'Please authenticate to unlock Qarz Khaata',
+          localizedReason: 'Scan your fingerprint to verify Qarz Khaata account',
           options: const AuthenticationOptions(
             biometricOnly: false,
             stickyAuth: true,
@@ -126,6 +126,7 @@ class KhaataProvider extends ChangeNotifier {
           await prefs.setBool(_prefIsLoggedInKey, true);
           return true;
         }
+        return false;
       }
     } catch (e) {
       debugPrint('Biometric authentication error: $e');

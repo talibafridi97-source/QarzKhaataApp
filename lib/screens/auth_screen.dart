@@ -80,30 +80,35 @@ class _AuthScreenState extends State<AuthScreen> {
   void _tryBiometric() async {
     final provider = context.read<KhaataProvider>();
     
-    if (_isSignUpMode && _nameController.text.trim().isEmpty) {
+    if (_isSignUpMode && (_nameController.text.trim().isEmpty || _emailController.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your name before using fingerprint signup.'),
+          content: Text('Please enter your Name and Email before signing up with fingerprint.'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
+    // Explicitly prompt biometric scan
     final success = await provider.authenticateWithBiometrics();
     if (!mounted) return;
+
     if (success) {
       if (_isSignUpMode) {
         await provider.signUp(
           name: _nameController.text,
           email: _emailController.text,
-          pin: _pinController.text,
+          pin: _pinController.text.trim().isEmpty ? '1234' : _pinController.text,
         );
-        if (!mounted) return;
+      } else {
+        await provider.login(_pinController.text);
       }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Biometric authentication successful!'),
+          content: Text('Fingerprint verified successfully!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -111,7 +116,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Biometric verification failed or not set up on device.'),
+          content: Text('Fingerprint verification failed or canceled.'),
           backgroundColor: Colors.redAccent,
         ),
       );
