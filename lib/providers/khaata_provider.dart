@@ -1,22 +1,26 @@
 import 'package:flutter/foundation.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/debtor_model.dart';
 import '../models/transaction_model.dart';
 
-/// Provider class handling state management for auth, debtors, transactions, and business settings.
+/// Provider class handling state management for auth, localization, biometrics, and ledger.
 class KhaataProvider extends ChangeNotifier {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   static const String _prefIsLoggedInKey = 'is_logged_in';
   static const String _prefUserNameKey = 'user_name';
   static const String _prefUserPinKey = 'user_pin';
   static const String _prefBusinessNameKey = 'business_name';
+  static const String _prefLocaleKey = 'app_locale';
 
   bool _isLoggedIn = false;
   String _userName = '';
   String _userPin = '';
   String _businessName = 'My Business Khata';
+  String _locale = 'en'; // 'en', 'ur', 'ps', 'ar'
 
   String _searchQuery = '';
   bool _isLoading = false;
@@ -32,6 +36,7 @@ class KhaataProvider extends ChangeNotifier {
   String get userName => _userName;
   String get userPin => _userPin;
   bool get hasAccount => _userName.isNotEmpty;
+  String get locale => _locale;
 
   String get businessName => _businessName;
   String get searchQuery => _searchQuery;
@@ -68,7 +73,7 @@ class KhaataProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load Auth & Profile settings from SharedPreferences
+  /// Load Auth, Locale & Profile settings from SharedPreferences
   Future<void> _loadAuthAndProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -77,9 +82,52 @@ class KhaataProvider extends ChangeNotifier {
       _userPin = prefs.getString(_prefUserPinKey) ?? '';
       _businessName = prefs.getString(_prefBusinessNameKey) ??
           (_userName.isNotEmpty ? '$_userName Khaata' : 'My Business Khata');
+      _locale = prefs.getString(_prefLocaleKey) ?? 'en';
     } catch (e) {
       debugPrint('Error loading auth/profile: $e');
     }
+  }
+
+  /// Set and persist application language locale ('en', 'ur', 'ps', 'ar')
+  Future<void> setLocale(String newLocale) async {
+    if (_locale == newLocale) return;
+    _locale = newLocale;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefLocaleKey, _locale);
+    } catch (e) {
+      debugPrint('Error saving locale: $e');
+    }
+  }
+
+  /// Authenticate using Biometrics (Fingerprint / Face ID)
+  Future<bool> authenticateWithBiometrics() async {
+    try {
+      final bool canCheck = await _localAuth.canCheckBiometrics;
+      final bool isSupported = await _localAuth.isDeviceSupported();
+
+      if (!canCheck && !isSupported) return false;
+
+      final bool didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Please authenticate to unlock Qarz Khaata',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+
+      if (didAuthenticate) {
+        _isLoggedIn = true;
+        notifyListeners();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_prefIsLoggedInKey, true);
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Biometric authentication error: $e');
+    }
+    return false;
   }
 
   /// Sign Up a new user and automatically set Business Title as "[Name] Khaata"
@@ -87,7 +135,6 @@ class KhaataProvider extends ChangeNotifier {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return false;
 
-    // Auto format business name as e.g. "Talibjan Khaata"
     final formattedBusinessName = trimmedName.toLowerCase().endsWith('khaata')
         ? trimmedName
         : '$trimmedName Khaata';
@@ -198,7 +245,7 @@ class KhaataProvider extends ChangeNotifier {
       );
       final id = await _dbHelper.insertDebtor(newDebtor);
       if (id > 0) {
-        _searchQuery = ''; // Reset search query so new debtor appears immediately
+        _searchQuery = '';
         await loadDebtors();
         return true;
       }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/khaata_provider.dart';
 
-/// Top header widget displaying business/profile name and running totals summary.
+/// Top header widget displaying business/profile name, language selector, and running totals summary.
 class BusinessHeader extends StatelessWidget {
   const BusinessHeader({super.key});
 
@@ -187,6 +187,35 @@ class BusinessHeader extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // Language Selector Dropdown
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: DropdownButton<String>(
+                  value: provider.locale,
+                  dropdownColor: const Color(0xFF1E3C72),
+                  underline: const SizedBox(),
+                  icon: const Icon(Icons.language_rounded, color: Colors.white, size: 16),
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  items: const [
+                    DropdownMenuItem(value: 'en', child: Text('EN')),
+                    DropdownMenuItem(value: 'ur', child: Text('اردو')),
+                    DropdownMenuItem(value: 'ps', child: Text('پښتو')),
+                    DropdownMenuItem(value: 'ar', child: Text('عربي')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      provider.setLocale(val);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+
               IconButton(
                 icon: const Icon(Icons.logout_rounded, color: Colors.white70, size: 22),
                 tooltip: 'Logout / Switch Account',
