@@ -38,6 +38,7 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
+  /// Normal Submit (Sign Up or Login with PIN/Email)
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -77,13 +78,14 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  /// Biometric Fingerprint Auth (for Sign Up or Login backup if PIN is forgotten)
   void _tryBiometric() async {
     final provider = context.read<KhaataProvider>();
     
     if (_isSignUpMode && (_nameController.text.trim().isEmpty || _emailController.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your Name and Email before signing up with fingerprint.'),
+          content: Text('Please enter your Name and Email first before using fingerprint signup.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -102,7 +104,8 @@ class _AuthScreenState extends State<AuthScreen> {
           pin: _pinController.text.trim().isEmpty ? '1234' : _pinController.text,
         );
       } else {
-        await provider.login(_pinController.text);
+        // If logging in via fingerprint, bypass PIN requirement
+        await provider.login(provider.userPin);
       }
 
       if (!mounted) return;
@@ -126,7 +129,6 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<KhaataProvider>();
-    final hasAccount = provider.hasAccount;
     final l10n = AppLocalizations(provider.locale);
 
     return Scaffold(
@@ -223,7 +225,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Header Switch
+                                // Header Switch & Login/Signup Switch Button
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -235,22 +237,20 @@ class _AuthScreenState extends State<AuthScreen> {
                                         color: Color(0xFF1E3C72),
                                       ),
                                     ),
-                                    if (hasAccount)
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _isSignUpMode = !_isSignUpMode;
-                                            _pinController.clear();
-                                          });
-                                        },
-                                        child: Text(
-                                          _isSignUpMode ? l10n.translate('login') : l10n.translate('signup'),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.indigo,
-                                          ),
-                                        ),
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isSignUpMode = !_isSignUpMode;
+                                          _pinController.clear();
+                                        });
+                                      },
+                                      icon: Icon(_isSignUpMode ? Icons.login_rounded : Icons.person_add_rounded, size: 18),
+                                      label: Text(
+                                        _isSignUpMode ? 'Already have account? Login' : 'New User? Sign Up',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                       ),
+                                    ),
                                   ],
                                 ),
                                 const Divider(height: 24),
@@ -341,7 +341,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                                 const SizedBox(height: 24),
 
-                                // Action Button
+                                // Action Button (Create My Khaata / Login)
                                 SizedBox(
                                   width: double.infinity,
                                   height: 52,
@@ -367,7 +367,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
 
-                                // Biometric Fingerprint Button
+                                // Biometric Fingerprint Button (Separate from standard button)
                                 const SizedBox(height: 16),
                                 Center(
                                   child: TextButton.icon(
@@ -377,7 +377,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     onPressed: _tryBiometric,
                                     icon: const Icon(Icons.fingerprint_rounded, size: 28),
                                     label: Text(
-                                      _isSignUpMode ? 'Sign Up with Fingerprint' : 'Unlock with Fingerprint / Biometrics',
+                                      _isSignUpMode ? 'Sign Up with Fingerprint' : 'Forgot PIN? Login with Fingerprint',
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                   ),
