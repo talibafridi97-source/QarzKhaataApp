@@ -119,7 +119,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Fingerprint verification canceled.'),
+          content: Text('Fingerprint verification failed. Login failed.'),
           backgroundColor: Colors.redAccent,
         ),
       );
