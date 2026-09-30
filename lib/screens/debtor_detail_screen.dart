@@ -372,9 +372,41 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                   fontSize: 15,
                                 ),
                               ),
-                              subtitle: Text(
-                                DateFormat('dd MMM yyyy, hh:mm a').format(item.timestamp),
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('dd MMM yyyy, hh:mm a').format(item.timestamp),
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                  if (item.dueDate != null) ...[
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.alarm_rounded,
+                                          size: 13,
+                                          color: item.dueDate!.isBefore(DateTime.now())
+                                              ? Colors.red
+                                              : Colors.orange.shade800,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          item.dueDate!.isBefore(DateTime.now())
+                                              ? 'Overdue: ${DateFormat('dd MMM yyyy').format(item.dueDate!)}'
+                                              : 'Due: ${DateFormat('dd MMM yyyy').format(item.dueDate!)}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: item.dueDate!.isBefore(DateTime.now())
+                                                ? Colors.red
+                                                : Colors.orange.shade800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,

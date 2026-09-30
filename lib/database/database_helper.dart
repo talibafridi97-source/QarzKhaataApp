@@ -10,7 +10,7 @@ import '../models/user_model.dart';
 /// Singleton Database Helper for managing SQLite database operations across Web, Mobile & Desktop.
 class DatabaseHelper {
   static const String _dbName = 'qarz_khaata.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   // Table names
   static const String tableDebtors = 'debtors';
@@ -84,6 +84,7 @@ class DatabaseHelper {
         amount REAL NOT NULL,
         type TEXT NOT NULL,
         timestamp TEXT NOT NULL,
+        due_date TEXT,
         FOREIGN KEY (debtor_id) REFERENCES $tableDebtors (id) ON DELETE CASCADE
       )
     ''');
@@ -112,6 +113,13 @@ class DatabaseHelper {
           created_at TEXT NOT NULL
         )
       ''');
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE $tableTransactions ADD COLUMN due_date TEXT');
+      } catch (e) {
+        debugPrint('Column due_date already exists or upgrade error: $e');
+      }
     }
   }
 
@@ -197,6 +205,25 @@ class DatabaseHelper {
   }
 
   // ===========================================================================
+  // USER OPERATIONS (SQLite)
+  // ===========================================================================
+
+  Future<int> insertUser(UserModel user) async {
+    final db = await database;
+    await db.delete(tableUsers); // Only keep 1 active local user profile
+    return await db.insert(tableUsers, user.toMap());
+  }
+
+  Future<UserModel?> getUser() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(tableUsers, limit: 1);
+    if (maps.isNotEmpty) {
+      return UserModel.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  // ===========================================================================
   // TRANSACTION OPERATIONS
   // ===========================================================================
 
@@ -238,61 +265,6 @@ class DatabaseHelper {
     );
 
     return List.generate(maps.length, (i) => TransactionModel.fromMap(maps[i]));
-  }
-
-  // ===========================================================================
-  // USER OPERATIONS
-  // ===========================================================================
-
-  /// Insert or replace user details into SQLite database
-  Future<int> insertUser(UserModel user) async {
-    final db = await database;
-    return await db.insert(
-      tableUsers,
-      user.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  /// Get the current registered user from SQLite
-  Future<UserModel?> getUser() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableUsers,
-      orderBy: 'id DESC',
-      limit: 1,
-    );
-    if (maps.isNotEmpty) {
-      return UserModel.fromMap(maps.first);
-    }
-    return null;
-  }
-
-  /// Check if a user already exists in the database
-  Future<bool> hasUser() async {
-    final user = await getUser();
-    return user != null;
-  }
-
-  /// Get user by Email
-  Future<UserModel?> getUserByEmail(String email) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      tableUsers,
-      where: 'LOWER(email) = ?',
-      whereArgs: [email.trim().toLowerCase()],
-      limit: 1,
-    );
-    if (maps.isNotEmpty) {
-      return UserModel.fromMap(maps.first);
-    }
-    return null;
-  }
-
-  /// Delete user from database
-  Future<int> clearUsers() async {
-    final db = await database;
-    return await db.delete(tableUsers);
   }
 
   /// Close database connection

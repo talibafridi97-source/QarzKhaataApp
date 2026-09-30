@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
 import '../providers/khaata_provider.dart';
 
-/// Modal dialog/bottom sheet for adding or editing a transaction (Gave Credit / Received Cash).
+/// Modal dialog/bottom sheet for adding or editing a transaction (Gave Credit / Received Cash) with Due Date reminders.
 class AddTransactionDialog extends StatefulWidget {
   final int debtorId;
   final String debtorName;
@@ -52,6 +52,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   late TextEditingController _amountController;
   late TextEditingController _detailsController;
   late DateTime _selectedDateTime;
+  DateTime? _selectedDueDate;
   bool _isSubmitting = false;
 
   @override
@@ -63,11 +64,13 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
       _amountController = TextEditingController(text: existing.amount == existing.amount.roundToDouble() ? existing.amount.toInt().toString() : existing.amount.toString());
       _detailsController = TextEditingController(text: existing.itemDetails);
       _selectedDateTime = existing.timestamp;
+      _selectedDueDate = existing.dueDate;
     } else {
       _selectedType = widget.initialType;
       _amountController = TextEditingController();
       _detailsController = TextEditingController();
       _selectedDateTime = DateTime.now();
+      _selectedDueDate = DateTime.now().add(const Duration(days: 7)); // Default 1 week due date reminder
     }
   }
 
@@ -106,6 +109,21 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     }
   }
 
+  Future<void> _pickDueDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDueDate ?? DateTime.now().add(const Duration(days: 7)),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+
+    if (pickedDate != null && mounted) {
+      setState(() {
+        _selectedDueDate = pickedDate;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -122,6 +140,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
       amount: amount,
       type: _selectedType,
       timestamp: _selectedDateTime,
+      dueDate: _selectedType == TransactionType.gave ? _selectedDueDate : null,
     );
 
     final provider = context.read<KhaataProvider>();
@@ -139,8 +158,8 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               isEditing
                   ? 'Updated entry of Rs. ${amount.toStringAsFixed(0)}'
                   : (_selectedType == TransactionType.gave
-                      ? 'Recorded credit entry of Rs. ${amount.toStringAsFixed(0)}'
-                      : 'Recorded payment entry of Rs. ${amount.toStringAsFixed(0)}'),
+                      ? 'Recorded credit entry with due date reminder'
+                      : 'Recorded payment entry'),
             ),
             backgroundColor: _selectedType == TransactionType.gave ? Colors.red.shade700 : Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
@@ -352,7 +371,49 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Payment Due Date Reminder Selector (Visible for Gave Credit)
+              if (isGave) ...[
+                InkWell(
+                  onTap: _pickDueDate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: _selectedDueDate != null ? Colors.orange.shade700 : Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.orange.shade100.withAlpha(50),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.alarm_rounded, color: Colors.orange.shade800, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _selectedDueDate == null
+                                ? 'Set Payment Due Date Reminder (Optional)'
+                                : 'Payment Due By: ${DateFormat('dd MMM yyyy').format(_selectedDueDate!)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                        if (_selectedDueDate != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => setState(() => _selectedDueDate = null),
+                          )
+                        else
+                          const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Save Action Button
               SizedBox(

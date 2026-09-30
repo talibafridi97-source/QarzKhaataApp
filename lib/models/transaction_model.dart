@@ -11,6 +11,7 @@ class TransactionModel {
   final double amount;
   final TransactionType type;
   final DateTime timestamp;
+  final DateTime? dueDate;
 
   TransactionModel({
     this.id,
@@ -19,6 +20,7 @@ class TransactionModel {
     required this.amount,
     required this.type,
     required this.timestamp,
+    this.dueDate,
   });
 
   /// Convert TransactionModel object to a Map for SQLite insertion/update.
@@ -29,6 +31,7 @@ class TransactionModel {
       'amount': amount,
       'type': type == TransactionType.gave ? 'GAVE' : 'GOT',
       'timestamp': timestamp.toIso8601String(),
+      'due_date': dueDate?.toIso8601String(),
     };
     if (id != null) {
       map['id'] = id;
@@ -45,6 +48,7 @@ class TransactionModel {
       amount: (map['amount'] as num).toDouble(),
       type: (map['type'] as String) == 'GAVE' ? TransactionType.gave : TransactionType.got,
       timestamp: DateTime.parse(map['timestamp'] as String),
+      dueDate: map['due_date'] != null ? DateTime.parse(map['due_date'] as String) : null,
     );
   }
 
@@ -56,6 +60,7 @@ class TransactionModel {
     double? amount,
     TransactionType? type,
     DateTime? timestamp,
+    DateTime? dueDate,
   }) {
     return TransactionModel(
       id: id ?? this.id,
@@ -64,6 +69,7 @@ class TransactionModel {
       amount: amount ?? this.amount,
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
+      dueDate: dueDate ?? this.dueDate,
     );
   }
 
